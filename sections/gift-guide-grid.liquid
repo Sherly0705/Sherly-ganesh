@@ -8,7 +8,7 @@
       {% assign product = all_products[block.settings.product] %}
       {% if product %}
         <div class="gift-item" data-handle="{{ product.handle }}">
-          <img src="{{ product.featured_image | img_url: 'medium' }}" alt="{{ product.title | escape }}">
+          <img src="{{ product.featured_image | image_url: width: 600 }}" alt="{{ product.title | escape }}">
           <div class="overlay">
             <button class="quick-view">Quick View</button>
           </div>
@@ -49,7 +49,7 @@
 }
 .gift-item:hover .overlay { opacity:1; }
 
-.popup { display:none; position:fixed; top:0; left:0; width:100%; height:100%; }
+.popup { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; }
 .popup.active { display:block; }
 .popup-overlay {
   position:absolute; width:100%; height:100%;
@@ -58,7 +58,7 @@
 .popup-box {
   position:absolute; top:50%; left:50%;
   transform:translate(-50%,-50%);
-  background:white; padding:20px;
+  background:white; padding:20px; z-index:10000;
 }
 .variant { border:1px solid #000; padding:5px; cursor:pointer; }
 .variant.active { background:black; color:white; }
@@ -71,11 +71,25 @@
 <script>
 document.addEventListener("DOMContentLoaded", function(){
 
-  var products = {};
+  let products = {};
+
   {% for block in section.blocks %}
     {% assign product = all_products[block.settings.product] %}
     {% if product %}
-      products["{{ product.handle }}"] = {{ product | json }};
+      products["{{ product.handle }}"] = {
+        title: "{{ product.title | escape }}",
+        description: {{ product.description | json }},
+        featured_image: "{{ product.featured_image | image_url: width: 800 }}",
+        variants: [
+          {% for v in product.variants %}
+          {
+            id: {{ v.id }},
+            title: "{{ v.title | escape }}",
+            price: "{{ v.price | money }}"
+          }{% unless forloop.last %},{% endunless %}
+          {% endfor %}
+        ]
+      };
     {% endif %}
   {% endfor %}
 
@@ -89,27 +103,30 @@ document.addEventListener("DOMContentLoaded", function(){
 
   let selectedVariant = null;
 
-  document.querySelectorAll(".gift-item").forEach(el=>{
-    el.addEventListener("click", function(){
+  document.querySelectorAll(".gift-item").forEach(el => {
+    el.addEventListener("click", function () {
+
       let handle = this.dataset.handle;
       let product = products[handle];
 
       pImg.src = product.featured_image;
       pTitle.innerText = product.title;
-      pPrice.innerText = product.price;
       pDesc.innerText = product.description;
 
       pVariants.innerHTML = "";
-      product.variants.forEach((v,i)=>{
+
+      product.variants.forEach((v, i) => {
         let btn = document.createElement("button");
         btn.innerText = v.title;
-        btn.className = "variant" + (i===0 ? " active":"");
+        btn.className = "variant" + (i === 0 ? " active" : "");
         btn.dataset.id = v.id;
 
-        if(i===0) selectedVariant = v.id;
+        if (i === 0) {
+          selectedVariant = v.id;
+        }
 
-        btn.addEventListener("click", function(){
-          document.querySelectorAll(".variant").forEach(b=>b.classList.remove("active"));
+        btn.addEventListener("click", function () {
+          document.querySelectorAll(".variant").forEach(b => b.classList.remove("active"));
           this.classList.add("active");
           selectedVariant = this.dataset.id;
         });
@@ -121,28 +138,36 @@ document.addEventListener("DOMContentLoaded", function(){
     });
   });
 
-  document.querySelector(".popup-overlay").onclick = ()=>popup.classList.remove("active");
-  document.querySelector(".close-btn").onclick = ()=>popup.classList.remove("active");
+  document.querySelector(".popup-overlay").onclick = () => popup.classList.remove("active");
+  document.querySelector(".close-btn").onclick = () => popup.classList.remove("active");
 
-  atc.addEventListener("click", function(){
+  atc.addEventListener("click", function () {
 
-    fetch('/cart/add.js',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({id:selectedVariant, quantity:1})
+    let productHandle = document.querySelector(".gift-item").dataset.handle;
+    let product = products[productHandle];
+
+    let selectedVariantObj = product.variants.find(v => v.id == selectedVariant);
+
+    fetch('/cart/add.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: selectedVariant,
+        quantity: 1
+      })
     })
-    .then(()=>{
+    .then(() => {
 
-      let selectedText = document.querySelector(".variant.active").innerText;
+      let optionsText = selectedVariantObj.title.toLowerCase();
 
-      // 🔥 REQUIRED CONDITION
-      if(selectedText.includes("Black") && selectedText.includes("Medium")){
-        fetch('/cart/add.js',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
+      // ✅ CONDITIONAL ADD-ON PRODUCT
+      if (optionsText.includes("black") && optionsText.includes("medium")) {
+        fetch('/cart/add.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            id: YOUR_SOFT_WINTER_VARIANT_ID,
-            quantity:1
+            id: {{ section.settings.soft_winter_variant_id }},
+            quantity: 1
           })
         });
       }
@@ -160,7 +185,8 @@ document.addEventListener("DOMContentLoaded", function(){
   "name": "Gift Guide Grid",
   "settings": [
     { "type": "text", "id": "title", "label": "Title" },
-    { "type": "color", "id": "title_color", "label": "Title Color" }
+    { "type": "color", "id": "title_color", "label": "Title Color" },
+    { "type": "text", "id": "soft_winter_variant_id", "label": "Soft Winter Variant ID" }
   ],
   "blocks": [
     {
