@@ -1,0 +1,44 @@
+<section class="gift-banner">
+  <div class="gift-banner__content">
+    <h1>{{ section.settings.heading }}</h1>
+    <p>{{ section.settings.subtext }}</p>
+    <button class="gift-banner__btn">{{ section.settings.button_text }}</button>
+  </div>
+</section>
+
+<style>
+.gift-banner {
+  padding: 60px;
+  text-align: center;
+}
+.gift-banner__btn {
+  padding: 12px 24px;
+  background: black;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+.gift-banner__btn:hover {
+  transform: scale(1.05);
+}
+@media (max-width: 768px) {
+  .gift-banner {
+    padding: 30px;
+  }
+}
+</style>
+
+{% schema %}
+{
+  "name": "Gift Guide Banner",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading" },
+    { "type": "text", "id": "subtext", "label": "Subtext" },
+    { "type": "text", "id": "button_text", "label": "Button Text" }
+  ],
+  "presets": [
+    { "name": "Gift Guide Banner" }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,178 @@
+<section class="gift-guide-grid">
+  <h2 style="color: {{ section.settings.title_color }}">
+    {{ section.settings.title }}
+  </h2>
+
+  <div class="gift-guide-grid__products">
+    {% for block in section.blocks %}
+      {% assign product = all_products[block.settings.product] %}
+      {% if product %}
+        <div class="gift-item" data-handle="{{ product.handle }}">
+          <img src="{{ product.featured_image | img_url: 'medium' }}" alt="{{ product.title | escape }}">
+          <div class="overlay">
+            <button class="quick-view">Quick View</button>
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</section>
+
+<!-- POPUP -->
+<div id="popup" class="popup">
+  <div class="popup-overlay"></div>
+  <div class="popup-box">
+    <button class="close-btn">✕</button>
+    <img id="p-img">
+    <h3 id="p-title"></h3>
+    <p id="p-price"></p>
+    <p id="p-desc"></p>
+    <div id="p-variants"></div>
+    <button id="addToCart">Add to Cart</button>
+  </div>
+</div>
+
+<style>
+.gift-guide-grid { padding: 40px; }
+.gift-guide-grid__products {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 16px;
+}
+.gift-item { position: relative; cursor: pointer; }
+.gift-item img { width: 100%; height: 250px; object-fit: cover; }
+.overlay {
+  position: absolute; bottom:0; left:0; right:0;
+  background: rgba(0,0,0,0.5);
+  opacity:0; transition:0.3s;
+  display:flex; justify-content:center;
+}
+.gift-item:hover .overlay { opacity:1; }
+
+.popup { display:none; position:fixed; top:0; left:0; width:100%; height:100%; }
+.popup.active { display:block; }
+.popup-overlay {
+  position:absolute; width:100%; height:100%;
+  background: rgba(0,0,0,0.6);
+}
+.popup-box {
+  position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  background:white; padding:20px;
+}
+.variant { border:1px solid #000; padding:5px; cursor:pointer; }
+.variant.active { background:black; color:white; }
+
+@media(max-width:768px){
+  .gift-guide-grid__products { grid-template-columns:1fr; }
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+
+  var products = {};
+  {% for block in section.blocks %}
+    {% assign product = all_products[block.settings.product] %}
+    {% if product %}
+      products["{{ product.handle }}"] = {{ product | json }};
+    {% endif %}
+  {% endfor %}
+
+  const popup = document.getElementById("popup");
+  const pImg = document.getElementById("p-img");
+  const pTitle = document.getElementById("p-title");
+  const pPrice = document.getElementById("p-price");
+  const pDesc = document.getElementById("p-desc");
+  const pVariants = document.getElementById("p-variants");
+  const atc = document.getElementById("addToCart");
+
+  let selectedVariant = null;
+
+  document.querySelectorAll(".gift-item").forEach(el=>{
+    el.addEventListener("click", function(){
+      let handle = this.dataset.handle;
+      let product = products[handle];
+
+      pImg.src = product.featured_image;
+      pTitle.innerText = product.title;
+      pPrice.innerText = product.price;
+      pDesc.innerText = product.description;
+
+      pVariants.innerHTML = "";
+      product.variants.forEach((v,i)=>{
+        let btn = document.createElement("button");
+        btn.innerText = v.title;
+        btn.className = "variant" + (i===0 ? " active":"");
+        btn.dataset.id = v.id;
+
+        if(i===0) selectedVariant = v.id;
+
+        btn.addEventListener("click", function(){
+          document.querySelectorAll(".variant").forEach(b=>b.classList.remove("active"));
+          this.classList.add("active");
+          selectedVariant = this.dataset.id;
+        });
+
+        pVariants.appendChild(btn);
+      });
+
+      popup.classList.add("active");
+    });
+  });
+
+  document.querySelector(".popup-overlay").onclick = ()=>popup.classList.remove("active");
+  document.querySelector(".close-btn").onclick = ()=>popup.classList.remove("active");
+
+  atc.addEventListener("click", function(){
+
+    fetch('/cart/add.js',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({id:selectedVariant, quantity:1})
+    })
+    .then(()=>{
+
+      let selectedText = document.querySelector(".variant.active").innerText;
+
+      // 🔥 REQUIRED CONDITION
+      if(selectedText.includes("Black") && selectedText.includes("Medium")){
+        fetch('/cart/add.js',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            id: YOUR_SOFT_WINTER_VARIANT_ID,
+            quantity:1
+          })
+        });
+      }
+
+      window.location = "/cart";
+    });
+
+  });
+
+});
+</script>
+
+{% schema %}
+{
+  "name": "Gift Guide Grid",
+  "settings": [
+    { "type": "text", "id": "title", "label": "Title" },
+    { "type": "color", "id": "title_color", "label": "Title Color" }
+  ],
+  "blocks": [
+    {
+      "type": "product",
+      "name": "Product",
+      "settings": [
+        { "type": "product", "id": "product", "label": "Select product" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "Gift Guide Grid" }
+  ]
+}
+{% endschema %}
